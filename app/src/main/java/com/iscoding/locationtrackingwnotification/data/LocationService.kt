@@ -9,6 +9,8 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.google.android.gms.location.LocationServices
 import com.iscoding.locationtrackingwnotification.R
+import com.iscoding.locationtrackingwnotification.data.DefaultLocationClient.Companion.ACTION_LOCATION_ERROR
+import com.iscoding.locationtrackingwnotification.data.DefaultLocationClient.Companion.EXTRA_ERROR_MESSAGE
 import com.iscoding.locationtrackingwnotification.domain.LocationTracker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -36,7 +38,7 @@ class LocationService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when(intent?.action) {
+        when (intent?.action) {
             ACTION_START -> start()
             ACTION_STOP -> stop()
         }
@@ -44,6 +46,8 @@ class LocationService : Service() {
     }
 
     private fun start() {
+        sendErrorBroadcast("HELLO FROM SERVICE")
+
         val notification = NotificationCompat.Builder(this, "location")
             .setContentTitle("Tracking location...")
             .setContentText("Location: null")
@@ -51,13 +55,17 @@ class LocationService : Service() {
             .setOngoing(true)
 
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        Log.d("ISLAM","SERVICE STARTED " )
 
-        // Request location updates
         locationClient
-            .getLocationUpdates(10000L) // Adjust interval as needed
-            .catch { e -> e.printStackTrace() }
+            .getLocationUpdates(8000L) // Adjust interval as needed
+            .catch { e ->
+                sendErrorBroadcast(e.message.toString())
+
+                e.printStackTrace()
+            }
             .onEach { location ->
-                Log.d("ISLAM",location.latitude.toString())
+                Log.d("ISLAM", location.latitude.toString())
                 val lat = location.latitude.toString()
                 val long = location.longitude.toString()
                 val updatedNotification = notification.setContentText(
@@ -71,7 +79,7 @@ class LocationService : Service() {
     }
 
     private fun stop() {
-        stopForeground(true)
+        stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
 
@@ -83,5 +91,11 @@ class LocationService : Service() {
     companion object {
         const val ACTION_START = "ACTION_START"
         const val ACTION_STOP = "ACTION_STOP"
+    }
+    private fun sendErrorBroadcast(message: String) {
+        val intent = Intent(ACTION_LOCATION_ERROR).apply {
+            putExtra(EXTRA_ERROR_MESSAGE, message)
+        }
+        this.sendBroadcast(intent)
     }
 }
